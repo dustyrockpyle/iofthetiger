@@ -295,7 +295,7 @@ pub const IO = struct {
                             break :blk @as(os.socket_t, @intCast(completion.result));
                         }
                     };
-                    call_callback(completion, &result);
+                    completion.callback(&result);
                 },
                 .close => {
                     const result: anyerror!void = blk: {
@@ -313,7 +313,7 @@ pub const IO = struct {
                             assert(completion.result == 0);
                         }
                     };
-                    call_callback(completion, &result);
+                    completion.callback(&result);
                 },
                 .connect => {
                     const result: anyerror!void = blk: {
@@ -347,7 +347,7 @@ pub const IO = struct {
                             assert(completion.result == 0);
                         }
                     };
-                    call_callback(completion, &result);
+                    completion.callback(&result);
                 },
                 .read => {
                     const result: anyerror!usize = blk: {
@@ -377,7 +377,7 @@ pub const IO = struct {
                             break :blk @as(usize, @intCast(completion.result));
                         }
                     };
-                    call_callback(completion, &result);
+                    completion.callback(&result);
                 },
                 .recv => {
                     const result: anyerror!usize = blk: {
@@ -405,7 +405,7 @@ pub const IO = struct {
                             break :blk @as(usize, @intCast(completion.result));
                         }
                     };
-                    call_callback(completion, &result);
+                    completion.callback(&result);
                 },
                 .send => {
                     const result: anyerror!usize = blk: {
@@ -440,7 +440,7 @@ pub const IO = struct {
                             break :blk @as(usize, @intCast(completion.result));
                         }
                     };
-                    call_callback(completion, &result);
+                    completion.callback(&result);
                 },
                 .timeout => {
                     assert(completion.result < 0);
@@ -453,7 +453,7 @@ pub const IO = struct {
                         .TIME => {}, // A success.
                         else => |errno| os.unexpectedErrno(errno),
                     };
-                    call_callback(completion, &result);
+                    completion.callback(&result);
                 },
                 .write => {
                     const result: anyerror!usize = blk: {
@@ -484,18 +484,11 @@ pub const IO = struct {
                             break :blk @as(usize, @intCast(completion.result));
                         }
                     };
-                    call_callback(completion, &result);
+                    completion.callback(&result);
                 },
             }
         }
     };
-
-    fn call_callback(
-        completion: *Completion,
-        result: *const anyopaque,
-    ) void {
-        completion.callback(completion.context, completion, result);
-    }
 
     /// This union encodes the set of operations supported as well as their arguments.
     const Operation = union(enum) {
