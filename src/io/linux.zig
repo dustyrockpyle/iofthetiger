@@ -295,7 +295,7 @@ pub const IO = struct {
                             break :blk @as(os.socket_t, @intCast(completion.result));
                         }
                     };
-                    completion.callback(&result);
+                    completion.callback(completion.context, completion, &result);
                 },
                 .close => {
                     const result: anyerror!void = blk: {
@@ -313,7 +313,7 @@ pub const IO = struct {
                             assert(completion.result == 0);
                         }
                     };
-                    completion.callback(&result);
+                    completion.callback(completion.context, completion, &result);
                 },
                 .connect => {
                     const result: anyerror!void = blk: {
@@ -347,7 +347,7 @@ pub const IO = struct {
                             assert(completion.result == 0);
                         }
                     };
-                    completion.callback(&result);
+                    completion.callback(completion.context, completion, &result);
                 },
                 .read => {
                     const result: anyerror!usize = blk: {
@@ -377,7 +377,7 @@ pub const IO = struct {
                             break :blk @as(usize, @intCast(completion.result));
                         }
                     };
-                    completion.callback(&result);
+                    completion.callback(completion.context, completion, &result);
                 },
                 .recv => {
                     const result: anyerror!usize = blk: {
@@ -405,7 +405,7 @@ pub const IO = struct {
                             break :blk @as(usize, @intCast(completion.result));
                         }
                     };
-                    completion.callback(&result);
+                    completion.callback(completion.context, completion, &result);
                 },
                 .send => {
                     const result: anyerror!usize = blk: {
@@ -440,7 +440,7 @@ pub const IO = struct {
                             break :blk @as(usize, @intCast(completion.result));
                         }
                     };
-                    completion.callback(&result);
+                    completion.callback(completion.context, completion, &result);
                 },
                 .timeout => {
                     assert(completion.result < 0);
@@ -453,7 +453,7 @@ pub const IO = struct {
                         .TIME => {}, // A success.
                         else => |errno| os.unexpectedErrno(errno),
                     };
-                    completion.callback(&result);
+                    completion.callback(completion.context, completion, &result);
                 },
                 .write => {
                     const result: anyerror!usize = blk: {
@@ -484,7 +484,7 @@ pub const IO = struct {
                             break :blk @as(usize, @intCast(completion.result));
                         }
                     };
-                    completion.callback(&result);
+                    completion.callback(completion.context, completion, &result);
                 },
             }
         }
