@@ -4,8 +4,10 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    _ = b.addModule("io", .{ .root_source_file = .{ .path = "src/io.zig" } });
+    // Main module for projects to use.
+    const io_module = b.addModule("io", .{ .root_source_file = .{ .path = "src/io.zig" } });
 
+    // Library unit tests.
     const main_tests = b.addTest(.{
         .root_source_file = .{ .path = "src/test.zig" },
         .target = target,
@@ -15,4 +17,17 @@ pub fn build(b: *std.Build) void {
     const run_main_tests = b.addRunArtifact(main_tests);
     const test_step = b.step("test", "Run library tests");
     test_step.dependOn(&run_main_tests.step);
+
+    // Sample web server.
+    const server_exe = b.addExecutable(.{
+        .name = "server",
+        .root_source_file = .{ .path = "src/sample_web_server.zig" },
+        .target = target,
+        .optimize = optimize,
+    });
+    server_exe.root_module.addImport("io", io_module);
+
+    const run_server = b.addRunArtifact(server_exe);
+    const server_step = b.step("server", "Run sample web server.");
+    server_step.dependOn(&run_server.step);
 }

@@ -4,4 +4,6 @@ This library is pretty much the [TigerBeetle](https://github.com/tigerbeetle/tig
 IO library with the TigerBeetle specifics removed, to make it a more general purpose async
 IO library for Zig programs. It works on Linux, macOS, and Windows.
 
-See the [tests](src/test.zig) for sample usage.
+The tests in [tests](src/test.zig) show some sample usage, and there's a full sample
+[multithreaded web server](src/sample_web_server.zig) too. You can build and run the sample
+web server with `zig build run server`.
