@@ -1,7 +1,7 @@
 .{
     .name = "iofthetiger",
     .version = "0.1.0",
-    .minimum_zig_version = "0.12.0-dev.2334+aef1da163",
+    .minimum_zig_version = "0.12.0-dev.3480+9dac8db2d",
     .paths = .{
         "build.zig",
         "build.zig.zon",

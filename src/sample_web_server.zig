@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
 const Atomic = std.atomic.Value;
 const debug = std.debug;
@@ -6,7 +7,7 @@ const fifo = std.fifo;
 const heap = std.heap;
 const log = std.log.scoped(.server);
 const mem = std.mem;
-const os = std.os;
+const posix = std.posix;
 const Thread = std.Thread;
 
 const IO = @import("io").IO;
@@ -23,7 +24,7 @@ pub const Config = struct {
     pub const recv_buf_len = 1024;
 };
 
-const Queue = fifo.LinearFifo(os.socket_t, .{ .Static = Config.accept_buf_len });
+const Queue = fifo.LinearFifo(posix.socket_t, .{ .Static = Config.accept_buf_len });
 
 var running = Atomic(bool).init(true);
 
@@ -34,8 +35,10 @@ const Acceptor = struct {
 };
 
 pub fn main() !void {
-    // Handle OS signals for graceful shutdown.
-    try addSignalHandlers();
+    if (builtin.target.isBSD() or builtin.target.os.tag == .linux) {
+        // Handle OS signals for graceful shutdown.
+        try addSignalHandlers();
+    }
 
     // Cross-platform IO setup.
     var io = try IO.init(Config.io_entries, 0);
@@ -43,11 +46,11 @@ pub fn main() !void {
 
     // Listener setup
     const address = try std.net.Address.parseIp4(Config.server_ip, Config.server_port);
-    const listener = try io.open_socket(address.any.family, os.SOCK.STREAM, os.IPPROTO.TCP);
-    defer os.closeSocket(listener);
-    try os.setsockopt(listener, os.SOL.SOCKET, os.SO.REUSEADDR, &std.mem.toBytes(@as(c_int, 1)));
-    try os.bind(listener, &address.any, address.getOsSockLen());
-    try os.listen(listener, Config.kernel_backlog);
+    const listener = try io.open_socket(address.any.family, posix.SOCK.STREAM, posix.IPPROTO.TCP);
+    defer posix.close(listener);
+    try posix.setsockopt(listener, posix.SOL.SOCKET, posix.SO.REUSEADDR, &std.mem.toBytes(@as(c_int, 1)));
+    try posix.bind(listener, &address.any, address.getOsSockLen());
+    try posix.listen(listener, Config.kernel_backlog);
 
     log.info("server listening on IP {s} port {}. CTRL+C to shutdown.", .{ Config.server_ip, Config.server_port });
 
@@ -67,7 +70,7 @@ pub fn main() !void {
         .queue = &queue,
     };
 
-    while (running.load(.Monotonic)) {
+    while (running.load(.monotonic)) {
         // Start accepting.
         var acceptor_completion: IO.Completion = undefined;
         io.accept(*Acceptor, &acceptor, acceptCallback, &acceptor_completion, listener);
@@ -83,7 +86,7 @@ pub fn main() !void {
 fn acceptCallback(
     acceptor_ptr: *Acceptor,
     completion: *IO.Completion,
-    result: IO.AcceptError!os.socket_t,
+    result: IO.AcceptError!posix.socket_t,
 ) void {
     _ = completion;
     const accepted_sock = result catch @panic("accept error");
@@ -111,7 +114,7 @@ const Client = struct {
     completion: IO.Completion,
     io: *IO,
     recv_buf: [Config.recv_buf_len]u8,
-    socket: os.socket_t,
+    socket: posix.socket_t,
     thread_id: Thread.Id,
 };
 
@@ -127,9 +130,9 @@ fn handleClient(queue_mutex: *Thread.Mutex, queue: *Queue) !void {
     var fba = heap.FixedBufferAllocator.init(&client_buf);
     const allocator = fba.allocator();
 
-    while (running.load(.Monotonic)) {
+    while (running.load(.monotonic)) {
         // Get next accepted client socket.
-        const maybe_socket: ?os.socket_t = blk: {
+        const maybe_socket: ?posix.socket_t = blk: {
             queue_mutex.lock();
             defer queue_mutex.unlock();
             break :blk queue.readItem();
@@ -239,31 +242,31 @@ fn closeCallback(
 fn addSignalHandlers() !void {
     // Ignore broken pipes
     {
-        var act = os.Sigaction{
+        var act = posix.Sigaction{
             .handler = .{
-                .handler = os.SIG.IGN,
+                .handler = posix.SIG.IGN,
             },
-            .mask = os.empty_sigset,
+            .mask = posix.empty_sigset,
             .flags = 0,
         };
-        try os.sigaction(os.SIG.PIPE, &act, null);
+        try posix.sigaction(posix.SIG.PIPE, &act, null);
     }
 
     // Catch SIGINT/SIGTERM for proper shutdown
     {
-        var act = os.Sigaction{
+        var act = posix.Sigaction{
             .handler = .{
                 .handler = struct {
                     fn wrapper(sig: c_int) callconv(.C) void {
                         log.info("Caught signal {d}; Shutting down...", .{sig});
-                        running.store(false, .Release);
+                        running.store(false, .release);
                     }
                 }.wrapper,
             },
-            .mask = os.empty_sigset,
+            .mask = posix.empty_sigset,
             .flags = 0,
         };
-        try os.sigaction(os.SIG.TERM, &act, null);
-        try os.sigaction(os.SIG.INT, &act, null);
+        try posix.sigaction(posix.SIG.TERM, &act, null);
+        try posix.sigaction(posix.SIG.INT, &act, null);
     }
 }

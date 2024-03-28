@@ -2,6 +2,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 
 const os = std.os;
+const posix = std.posix;
 const assert = std.debug.assert;
 const is_darwin = builtin.target.os.tag.isDarwin();
 const is_windows = builtin.target.os.tag == .windows;
@@ -48,8 +49,8 @@ pub const Time = struct {
             // https://opensource.apple.com/source/Libc/Libc-1158.1.2/gen/clock_gettime.c.auto.html
             if (is_darwin) {
                 const darwin = struct {
-                    const mach_timebase_info_t = os.darwin.mach_timebase_info_data;
-                    extern "c" fn mach_timebase_info(info: *mach_timebase_info_t) os.darwin.kern_return_t;
+                    const mach_timebase_info_t = std.c.mach_timebase_info_data;
+                    extern "c" fn mach_timebase_info(info: *mach_timebase_info_t) std.c.kern_return_t;
                     extern "c" fn mach_continuous_time() u64;
                 };
 
@@ -67,8 +68,8 @@ pub const Time = struct {
             // CLOCK_BOOTTIME is the same as CLOCK_MONOTONIC but includes elapsed time during a suspend.
             // For more detail and why CLOCK_MONOTONIC_RAW is even worse than CLOCK_MONOTONIC,
             // see https://github.com/ziglang/zig/pull/933#discussion_r656021295.
-            var ts: os.timespec = undefined;
-            os.clock_gettime(os.CLOCK.BOOTTIME, &ts) catch @panic("CLOCK_BOOTTIME required");
+            var ts: posix.timespec = undefined;
+            posix.clock_gettime(posix.CLOCK.BOOTTIME, &ts) catch @panic("CLOCK_BOOTTIME required");
             break :blk @as(u64, @intCast(ts.tv_sec)) * std.time.ns_per_s + @as(u64, @intCast(ts.tv_nsec));
         };
 
