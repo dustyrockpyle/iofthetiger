@@ -1,6 +1,6 @@
 const std = @import("std");
 const builtin = @import("builtin");
-const os = std.os;
+const posix = std.posix;
 const testing = std.testing;
 const assert = std.debug.assert;
 
@@ -13,7 +13,7 @@ test "write/read/close" {
 
         io: IO,
         done: bool = false,
-        fd: os.fd_t,
+        fd: posix.fd_t,
 
         write_buf: [20]u8 = [_]u8{97} ** 20,
         read_buf: [20]u8 = [_]u8{98} ** 20,
@@ -87,10 +87,10 @@ test "accept/connect/send/receive" {
 
         io: *IO,
         done: bool = false,
-        server: os.socket_t,
-        client: os.socket_t,
+        server: posix.socket_t,
+        client: posix.socket_t,
 
-        accepted_sock: os.socket_t = undefined,
+        accepted_sock: posix.socket_t = undefined,
 
         send_buf: [10]u8 = [_]u8{ 1, 0, 1, 0, 1, 0, 1, 0, 1, 0 },
         recv_buf: [5]u8 = [_]u8{ 0, 1, 0, 1, 0 },
@@ -104,24 +104,24 @@ test "accept/connect/send/receive" {
 
             const address = try std.net.Address.parseIp4("127.0.0.1", 0);
             const kernel_backlog = 1;
-            const server = try io.open_socket(address.any.family, os.SOCK.STREAM, os.IPPROTO.TCP);
-            defer os.closeSocket(server);
+            const server = try io.open_socket(address.any.family, posix.SOCK.STREAM, posix.IPPROTO.TCP);
+            defer posix.close(server);
 
-            const client = try io.open_socket(address.any.family, os.SOCK.STREAM, os.IPPROTO.TCP);
-            defer os.closeSocket(client);
+            const client = try io.open_socket(address.any.family, posix.SOCK.STREAM, posix.IPPROTO.TCP);
+            defer posix.close(client);
 
-            try os.setsockopt(
+            try posix.setsockopt(
                 server,
-                os.SOL.SOCKET,
-                os.SO.REUSEADDR,
+                posix.SOL.SOCKET,
+                posix.SO.REUSEADDR,
                 &std.mem.toBytes(@as(c_int, 1)),
             );
-            try os.bind(server, &address.any, address.getOsSockLen());
-            try os.listen(server, kernel_backlog);
+            try posix.bind(server, &address.any, address.getOsSockLen());
+            try posix.listen(server, kernel_backlog);
 
             var client_address = std.net.Address.initIp4(undefined, undefined);
             var client_address_len = client_address.getOsSockLen();
-            try os.getsockname(server, &client_address.any, &client_address_len);
+            try posix.getsockname(server, &client_address.any, &client_address_len);
 
             var self: Context = .{
                 .io = &io,
@@ -180,7 +180,7 @@ test "accept/connect/send/receive" {
         fn accept_callback(
             self: *Context,
             completion: *IO.Completion,
-            result: IO.AcceptError!os.socket_t,
+            result: IO.AcceptError!posix.socket_t,
         ) void {
             self.accepted_sock = result catch @panic("accept error");
             self.io.recv(
@@ -314,7 +314,7 @@ test "tick to wait" {
         const Context = @This();
 
         io: IO,
-        accepted: os.socket_t = IO.INVALID_SOCKET,
+        accepted: posix.socket_t = IO.INVALID_SOCKET,
         connected: bool = false,
         received: bool = false,
 
@@ -325,24 +325,24 @@ test "tick to wait" {
             const address = try std.net.Address.parseIp4("127.0.0.1", 0);
             const kernel_backlog = 1;
 
-            const server = try self.io.open_socket(address.any.family, os.SOCK.STREAM, os.IPPROTO.TCP);
-            defer os.closeSocket(server);
+            const server = try self.io.open_socket(address.any.family, posix.SOCK.STREAM, posix.IPPROTO.TCP);
+            defer posix.close(server);
 
-            try os.setsockopt(
+            try posix.setsockopt(
                 server,
-                os.SOL.SOCKET,
-                os.SO.REUSEADDR,
+                posix.SOL.SOCKET,
+                posix.SO.REUSEADDR,
                 &std.mem.toBytes(@as(c_int, 1)),
             );
-            try os.bind(server, &address.any, address.getOsSockLen());
-            try os.listen(server, kernel_backlog);
+            try posix.bind(server, &address.any, address.getOsSockLen());
+            try posix.listen(server, kernel_backlog);
 
             var client_address = std.net.Address.initIp4(undefined, undefined);
             var client_address_len = client_address.getOsSockLen();
-            try os.getsockname(server, &client_address.any, &client_address_len);
+            try posix.getsockname(server, &client_address.any, &client_address_len);
 
-            const client = try self.io.open_socket(client_address.any.family, os.SOCK.STREAM, os.IPPROTO.TCP);
-            defer os.closeSocket(client);
+            const client = try self.io.open_socket(client_address.any.family, posix.SOCK.STREAM, posix.IPPROTO.TCP);
+            defer posix.close(client);
 
             // Start the accept
             var server_completion: IO.Completion = undefined;
@@ -368,7 +368,7 @@ test "tick to wait" {
 
             assert(self.connected);
             assert(self.accepted != IO.INVALID_SOCKET);
-            defer os.closeSocket(self.accepted);
+            defer posix.close(self.accepted);
 
             // Start receiving on the client
             var recv_completion: IO.Completion = undefined;
@@ -410,7 +410,7 @@ test "tick to wait" {
         fn accept_callback(
             self: *Context,
             completion: *IO.Completion,
-            result: IO.AcceptError!os.socket_t,
+            result: IO.AcceptError!posix.socket_t,
         ) void {
             _ = completion;
 
@@ -442,15 +442,15 @@ test "tick to wait" {
             self.received = true;
         }
 
-        // TODO: use os.send() instead when it gets fixed for windows
-        fn os_send(sock: os.socket_t, buf: []const u8, flags: u32) !usize {
+        // TODO: use posix.send() instead when it gets fixed for windows
+        fn os_send(sock: posix.socket_t, buf: []const u8, flags: u32) !usize {
             if (builtin.target.os.tag != .windows) {
-                return os.send(sock, buf, flags);
+                return posix.send(sock, buf, flags);
             }
 
-            const rc = os.windows.sendto(sock, buf.ptr, buf.len, flags, null, 0);
-            if (rc == os.windows.ws2_32.SOCKET_ERROR) {
-                switch (os.windows.ws2_32.WSAGetLastError()) {
+            const rc = posix.windows.sendto(sock, buf.ptr, buf.len, flags, null, 0);
+            if (rc == posix.windows.ws2_32.SOCKET_ERROR) {
+                switch (posix.windows.ws2_32.WSAGetLastError()) {
                     .WSAEACCES => return error.AccessDenied,
                     .WSAEADDRNOTAVAIL => return error.AddressNotAvailable,
                     .WSAECONNRESET => return error.ConnectionResetByPeer,
@@ -470,7 +470,7 @@ test "tick to wait" {
                     .WSAESHUTDOWN => unreachable, // The socket has been shut down; it is not possible to WSASendTo on a socket after shutdown has been invoked with how set to SD_SEND or SD_BOTH.
                     .WSAEWOULDBLOCK => return error.WouldBlock,
                     .WSANOTINITIALISED => unreachable, // A successful WSAStartup call must occur before using this function.
-                    else => |err| return os.windows.unexpectedWSAError(err),
+                    else => |err| return posix.windows.unexpectedWSAError(err),
                 }
             } else {
                 return @as(usize, @intCast(rc));
@@ -490,7 +490,7 @@ test "pipe data over socket" {
 
         const Context = @This();
         const Socket = struct {
-            fd: os.socket_t = IO.INVALID_SOCKET,
+            fd: posix.socket_t = IO.INVALID_SOCKET,
             completion: IO.Completion = undefined,
         };
         const Pipe = struct {
@@ -514,23 +514,23 @@ test "pipe data over socket" {
             };
             defer self.io.deinit();
 
-            self.server.fd = try self.io.open_socket(os.AF.INET, os.SOCK.STREAM, os.IPPROTO.TCP);
-            defer os.closeSocket(self.server.fd);
+            self.server.fd = try self.io.open_socket(posix.AF.INET, posix.SOCK.STREAM, posix.IPPROTO.TCP);
+            defer posix.close(self.server.fd);
 
             const address = try std.net.Address.parseIp4("127.0.0.1", 0);
-            try os.setsockopt(
+            try posix.setsockopt(
                 self.server.fd,
-                os.SOL.SOCKET,
-                os.SO.REUSEADDR,
+                posix.SOL.SOCKET,
+                posix.SO.REUSEADDR,
                 &std.mem.toBytes(@as(c_int, 1)),
             );
 
-            try os.bind(self.server.fd, &address.any, address.getOsSockLen());
-            try os.listen(self.server.fd, 1);
+            try posix.bind(self.server.fd, &address.any, address.getOsSockLen());
+            try posix.listen(self.server.fd, 1);
 
             var client_address = std.net.Address.initIp4(undefined, undefined);
             var client_address_len = client_address.getOsSockLen();
-            try os.getsockname(self.server.fd, &client_address.any, &client_address_len);
+            try posix.getsockname(self.server.fd, &client_address.any, &client_address_len);
 
             self.io.accept(
                 *Context,
@@ -540,8 +540,8 @@ test "pipe data over socket" {
                 self.server.fd,
             );
 
-            self.tx.socket.fd = try self.io.open_socket(os.AF.INET, os.SOCK.STREAM, os.IPPROTO.TCP);
-            defer os.closeSocket(self.tx.socket.fd);
+            self.tx.socket.fd = try self.io.open_socket(posix.AF.INET, posix.SOCK.STREAM, posix.IPPROTO.TCP);
+            defer posix.close(self.tx.socket.fd);
 
             self.io.connect(
                 *Context,
@@ -565,7 +565,7 @@ test "pipe data over socket" {
             try testing.expect(self.server.fd != IO.INVALID_SOCKET);
             try testing.expect(self.tx.socket.fd != IO.INVALID_SOCKET);
             try testing.expect(self.rx.socket.fd != IO.INVALID_SOCKET);
-            os.closeSocket(self.rx.socket.fd);
+            posix.close(self.rx.socket.fd);
 
             try testing.expectEqual(self.tx.transferred, buffer_size);
             try testing.expectEqual(self.rx.transferred, buffer_size);
@@ -575,7 +575,7 @@ test "pipe data over socket" {
         fn on_accept(
             self: *Context,
             completion: *IO.Completion,
-            result: IO.AcceptError!os.socket_t,
+            result: IO.AcceptError!posix.socket_t,
         ) void {
             assert(self.rx.socket.fd == IO.INVALID_SOCKET);
             assert(&self.server.completion == completion);
