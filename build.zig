@@ -5,11 +5,11 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
 
     // Main module for projects to use.
-    const io_module = b.addModule("io", .{ .root_source_file = .{ .path = "src/io.zig" } });
+    const io_module = b.addModule("io", .{ .root_source_file = b.path("src/io.zig") });
 
     // Library unit tests.
     const main_tests = b.addTest(.{
-        .root_source_file = .{ .path = "src/test.zig" },
+        .root_source_file = b.path("src/test.zig"),
         .target = target,
         .optimize = optimize,
     });
@@ -21,7 +21,7 @@ pub fn build(b: *std.Build) void {
     // Sample web server.
     const server_exe = b.addExecutable(.{
         .name = "server",
-        .root_source_file = .{ .path = "src/sample_web_server.zig" },
+        .root_source_file = b.path("src/sample_web_server.zig"),
         .target = target,
         .optimize = optimize,
     });
